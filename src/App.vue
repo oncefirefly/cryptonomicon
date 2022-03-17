@@ -187,7 +187,33 @@ export default {
     };
   },
 
+  created() {
+    const tickersData = localStorage.getItem("cryptonomicon-list");
+
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        this.subscribeToUpdates(ticker.name);
+      });
+    }
+  },
+
   methods: {
+    subscribeToUpdates(tickerName) {
+      setInterval(async () => {
+        const getData = await fetch(`
+          https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=3294f8fd72a5910e9986cb28429003066e5c9bdae06c6f22e87785f980270642`);
+        const data = await getData.json();
+
+        this.tickers.find((t) => t?.name === tickerName).price =
+          data.USD > 1 ? data.USD?.toFixed(2) : data.USD?.toPrecision(2);
+
+        if (this.chosenTicker?.name === tickerName) {
+          this.graph.push(data.USD);
+        }
+      }, 5000);
+    },
+
     addTicker() {
       const newTicker = {
         name: this.ticker.toUpperCase(),
@@ -210,18 +236,10 @@ export default {
         this.tickers.push(newTicker);
         this.ticker = "";
       }
-      // setInterval(async () => {
-      //   const getData = await fetch(`
-      //     https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key=3294f8fd72a5910e9986cb28429003066e5c9bdae06c6f22e87785f980270642`);
-      //   const data = await getData.json();
 
-      //   this.tickers.find((t) => t.name === newTicker.name).price =
-      //     data.USD > 1 ? data.USD?.toFixed(2) : data.USD?.toPrecision(2);
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
 
-      //   if (this.chosenTicker?.name === newTicker.name) {
-      //     this.graph.push(data.USD);
-      //   }
-      // }, 3000);
+      this.subscribeToUpdates(newTicker.name);
     },
 
     select(ticker) {
@@ -257,7 +275,7 @@ export default {
     },
   },
 
-  created: async function () {
+  beforeCreate: async function () {
     const coinsData = await fetch(
       "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
     );
