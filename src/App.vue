@@ -119,7 +119,7 @@
                 {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ t.price }}
+                {{ formatPrice(t.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -190,7 +190,7 @@
 </template>
 
 <script>
-import { loadTicker } from "./api";
+import { loadTickers } from "./api";
 
 export default {
   name: "App",
@@ -250,29 +250,26 @@ export default {
   },
 
   methods: {
+    formatPrice(price) {
+      if (price === "-") {
+        return price;
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+    },
+
     async updateTickers() {
       if (!this.tickers.length) {
         return;
       }
 
-      const exchangeData = await loadTicker(
+      const exchangeData = await loadTickers(
         this.tickers.map((ticker) => ticker.name)
       );
 
       this.tickers.forEach((ticker) => {
         const price = exchangeData[ticker.name.toUpperCase()];
-        if (!price) {
-          ticker.price = "-";
-          return;
-        }
 
-        const normalizedPrice = 1 / price;
-        const formattedPrice =
-          normalizedPrice > 1
-            ? normalizedPrice.toFixed(2)
-            : normalizedPrice.toPrecision(2);
-
-        ticker.price = formattedPrice;
+        ticker.price = price ?? "-";
       });
     },
 
@@ -354,6 +351,8 @@ export default {
     normalizedGraph() {
       const maxValue = Math.max(...this.graph);
       const minValue = Math.min(...this.graph);
+
+      console.log(this.graph);
 
       if (maxValue === minValue) {
         return this.graph.map(() => 50);
