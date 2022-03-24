@@ -35,8 +35,8 @@
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                 v-model="ticker"
-                @keyup.enter.exact="addTicker"
-                @keydown.exact="switchWarning"
+                @keydown.enter.exact="addTicker"
+                @keyup.exact="switchWarning"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -49,7 +49,7 @@
               class="flex bg-white p-1 rounded-md shadow-md flex-wrap"
             >
               <span
-                v-for="coin in autoCompleteList(ticker)"
+                v-for="coin in autoCompleteList"
                 :key="coin"
                 @click="ticker = coin.toString()"
                 @click.exact="addTicker"
@@ -214,7 +214,16 @@ export default {
     };
   },
 
-  created() {
+  beforeCreate: async function () {
+    const coinsData = await fetch(
+      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+    );
+    const coins = await coinsData.json();
+
+    this.coinsList = Object.values(coins.Data);
+  },
+
+  created: function () {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
@@ -231,26 +240,40 @@ export default {
 
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
-      this.tickers.forEach((ticker) => {
-        this.subscribeToUpdates(ticker.name);
-      });
     }
+
+    setInterval(this.updateTickers, 5000);
+  },
+
+  mounted: function () {
+    this.renderingPage = false;
   },
 
   methods: {
-    subscribeToUpdates(tickerName) {
-      setInterval(async () => {
-        const exchangedData = await loadTicker(tickerName);
+    async updateTickers() {
+      if (!this.tickers.length) {
+        return;
+      }
 
-        this.tickers.find((t) => t?.name === tickerName).price =
-          exchangedData.USD > 1
-            ? exchangedData.USD?.toFixed(2)
-            : exchangedData.USD?.toPrecision(2);
+      const exchangeData = await loadTicker(
+        this.tickers.map((ticker) => ticker.name)
+      );
 
-        if (this.selectedTicker?.name === tickerName) {
-          this.graph.push(exchangedData.USD);
+      this.tickers.forEach((ticker) => {
+        const price = exchangeData[ticker.name.toUpperCase()];
+        if (!price) {
+          ticker.price = "-";
+          return;
         }
-      }, 5000);
+
+        const normalizedPrice = 1 / price;
+        const formattedPrice =
+          normalizedPrice > 1
+            ? normalizedPrice.toFixed(2)
+            : normalizedPrice.toPrecision(2);
+
+        ticker.price = formattedPrice;
+      });
     },
 
     addTicker() {
@@ -277,8 +300,6 @@ export default {
       }
 
       this.filter = "";
-
-      this.subscribeToUpdates(newTicker.name);
     },
 
     select(ticker) {
@@ -294,16 +315,6 @@ export default {
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = null;
       }
-    },
-
-    autoCompleteList(ticker) {
-      const autoCompleteArray = this.coinsList.filter(
-        (coin) =>
-          coin.FullName.toLowerCase().includes(ticker.toLowerCase()) ||
-          coin.Symbol.toLowerCase().includes(ticker.toLowerCase())
-      );
-
-      return autoCompleteArray.map((coin) => coin.Symbol).slice(0, 4);
     },
   },
 
@@ -330,6 +341,16 @@ export default {
       return this.filteredTickers.length > this.endIndex;
     },
 
+    autoCompleteList() {
+      const autoCompleteArray = this.coinsList.filter(
+        (coin) =>
+          coin.FullName.toLowerCase().includes(this.ticker.toLowerCase()) ||
+          coin.Symbol.toLowerCase().includes(this.ticker.toLowerCase())
+      );
+
+      return autoCompleteArray.map((coin) => coin.Symbol).slice(0, 4);
+    },
+
     normalizedGraph() {
       const maxValue = Math.max(...this.graph);
       const minValue = Math.min(...this.graph);
@@ -349,19 +370,6 @@ export default {
         page: this.page,
       };
     },
-  },
-
-  beforeCreate: async function () {
-    const coinsData = await fetch(
-      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
-    );
-    const coins = await coinsData.json();
-
-    this.coinsList = Object.values(coins.Data);
-  },
-
-  mounted: function () {
-    this.renderingPage = false;
   },
 
   watch: {
