@@ -190,7 +190,7 @@
 </template>
 
 <script>
-import { loadTickers } from "./api";
+import { loadCoinsList, subscribeToTicker, unsubFromTicker } from "./api";
 
 export default {
   name: "App",
@@ -215,12 +215,9 @@ export default {
   },
 
   beforeCreate: async function () {
-    const coinsData = await fetch(
-      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
-    );
-    const coins = await coinsData.json();
+    const coinsData = await loadCoinsList();
 
-    this.coinsList = Object.values(coins.Data);
+    this.coinsList = coinsData;
   },
 
   created: function () {
@@ -240,9 +237,12 @@ export default {
 
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        subscribeToTicker(ticker.name, (newPrice) =>
+          this.updateTicker(ticker.name, newPrice)
+        );
+      });
     }
-
-    setInterval(this.updateTickers, 5000);
   },
 
   mounted: function () {
@@ -250,6 +250,14 @@ export default {
   },
 
   methods: {
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter((ticker) => ticker.name === tickerName)
+        .forEach((ticker) => {
+          ticker.price = price;
+        });
+    },
+
     formatPrice(price) {
       if (price === "-") {
         return price;
@@ -258,19 +266,19 @@ export default {
     },
 
     async updateTickers() {
-      if (!this.tickers.length) {
-        return;
-      }
-
-      const exchangeData = await loadTickers(
-        this.tickers.map((ticker) => ticker.name)
-      );
-
-      this.tickers.forEach((ticker) => {
-        const price = exchangeData[ticker.name.toUpperCase()];
-
-        ticker.price = price ?? "-";
-      });
+      // if (!this.tickers.length) {
+      //   return;
+      // }
+      // const exchangeData = await loadTickers(
+      //   this.tickers.map((ticker) => ticker.name)
+      // );
+      // this.tickers.forEach((ticker) => {
+      //   const price = exchangeData[ticker.name.toUpperCase()];
+      //   ticker.price = price ?? "-";
+      // });
+      // if (this.selectedTicker) {
+      //   this.graph.push(this.selectedTicker.price);
+      // }
     },
 
     addTicker() {
@@ -289,10 +297,20 @@ export default {
         } else {
           this.alreadyAdded = false;
           this.tickers = [...this.tickers, newTicker];
+
+          subscribeToTicker(newTicker.name, (newPrice) =>
+            this.updateTicker(newTicker.name, newPrice)
+          );
+
           this.ticker = "";
         }
       } else if (newTicker.name.length) {
         this.tickers = [...this.tickers, newTicker];
+
+        subscribeToTicker(newTicker.name, (newPrice) =>
+          this.updateTicker(newTicker.name, newPrice)
+        );
+
         this.ticker = "";
       }
 
@@ -312,6 +330,8 @@ export default {
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = null;
       }
+
+      unsubFromTicker(tickerToRemove.name);
     },
   },
 
@@ -351,8 +371,6 @@ export default {
     normalizedGraph() {
       const maxValue = Math.max(...this.graph);
       const minValue = Math.min(...this.graph);
-
-      console.log(this.graph);
 
       if (maxValue === minValue) {
         return this.graph.map(() => 50);
