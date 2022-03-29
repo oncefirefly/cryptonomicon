@@ -254,6 +254,9 @@ export default {
       this.tickers
         .filter((ticker) => ticker.name === tickerName)
         .forEach((ticker) => {
+          if (ticker === this.selectedTicker) {
+            this.graph.push(price);
+          }
           ticker.price = price;
         });
     },
@@ -263,22 +266,6 @@ export default {
         return price;
       }
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
-    },
-
-    async updateTickers() {
-      // if (!this.tickers.length) {
-      //   return;
-      // }
-      // const exchangeData = await loadTickers(
-      //   this.tickers.map((ticker) => ticker.name)
-      // );
-      // this.tickers.forEach((ticker) => {
-      //   const price = exchangeData[ticker.name.toUpperCase()];
-      //   ticker.price = price ?? "-";
-      // });
-      // if (this.selectedTicker) {
-      //   this.graph.push(this.selectedTicker.price);
-      // }
     },
 
     addTicker() {
