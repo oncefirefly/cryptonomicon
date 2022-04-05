@@ -1,7 +1,7 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-white-100 p-4">
     <div
-      v-if="renderingPage"
+      v-if="loadingCircle"
       class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
     >
       <svg
@@ -35,8 +35,8 @@
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                 v-model="ticker"
-                @keydown.enter.exact="addTicker"
-                @keyup.exact="switchWarning"
+                @keyup.enter.exact="addTicker"
+                @keydown.exact="switchWarning"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -60,6 +60,9 @@
             </div>
             <div v-if="alreadyAdded" class="text-sm text-red-600">
               Такой тикер уже добавлен
+            </div>
+            <div v-if="noSuchCoin" class="text-sm text-red-600">
+              Такого тикера не существует
             </div>
           </div>
         </div>
@@ -149,7 +152,10 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker.name }} - USD
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          class="flex items-end border-gray-600 border-b border-l h-64"
+          ref="graph"
+        >
           <div
             v-for="(bar, index) in normalizedGraph"
             :key="index"
@@ -204,11 +210,14 @@ export default {
       selectedTicker: null,
 
       graph: [],
+      allGraphElements: [],
+      maxGraphElements: 1,
 
       coinsList: [],
       alreadyAdded: false,
+      noSuchCoin: false,
 
-      renderingPage: true,
+      loadingCircle: true,
 
       page: 1,
     };
@@ -246,7 +255,11 @@ export default {
   },
 
   mounted: function () {
-    this.renderingPage = false;
+    window.addEventListener("resize", this.calculateMaxGraphElements);
+  },
+
+  beforeUnmount: function () {
+    window.removeEventListener("resize", this.calculateMaxGraphElements);
   },
 
   methods: {
@@ -256,6 +269,13 @@ export default {
         .forEach((ticker) => {
           if (ticker === this.selectedTicker) {
             this.graph.push(price);
+
+            if (
+              this.graph.length > this.maxGraphElements &&
+              this.maxGraphElements > 1
+            ) {
+              this.graph = this.graph.slice(-this.maxGraphElements);
+            }
           }
           ticker.price = price;
         });
@@ -274,6 +294,8 @@ export default {
         price: "-",
       };
 
+      this.isInCoinsList(newTicker.name);
+
       if (this.tickers.length && newTicker.name.length) {
         const existingTicker = this.tickers.filter(
           (t) => t.name === newTicker.name
@@ -283,20 +305,25 @@ export default {
           this.alreadyAdded = true;
         } else {
           this.alreadyAdded = false;
+
+          if (this.noSuchCoin === false) {
+            this.tickers = [...this.tickers, newTicker];
+
+            subscribeToTicker(newTicker.name, (newPrice) =>
+              this.updateTicker(newTicker.name, newPrice)
+            );
+          }
+
+          this.ticker = "";
+        }
+      } else if (newTicker.name.length) {
+        if (this.noSuchCoin === false) {
           this.tickers = [...this.tickers, newTicker];
 
           subscribeToTicker(newTicker.name, (newPrice) =>
             this.updateTicker(newTicker.name, newPrice)
           );
-
-          this.ticker = "";
         }
-      } else if (newTicker.name.length) {
-        this.tickers = [...this.tickers, newTicker];
-
-        subscribeToTicker(newTicker.name, (newPrice) =>
-          this.updateTicker(newTicker.name, newPrice)
-        );
 
         this.ticker = "";
       }
@@ -319,6 +346,32 @@ export default {
       }
 
       unsubFromTicker(tickerToRemove.name);
+    },
+
+    isInCoinsList(tickerToCheck) {
+      const checkedTicker = this.coinsList.filter(
+        (coin) =>
+          tickerToCheck === coin.FullName || tickerToCheck === coin.Symbol
+      );
+
+      if (checkedTicker.length) {
+        this.noSuchCoin = false;
+      } else this.noSuchCoin = true;
+    },
+
+    calculateMaxGraphElements() {
+      if (!this.$refs.graph) {
+        return;
+      }
+
+      if (
+        this.graph.length > this.maxGraphElements &&
+        this.maxGraphElements > 1
+      ) {
+        this.graph = this.graph.slice(-this.maxGraphElements);
+      }
+
+      this.maxGraphElements = this.$refs.graph.clientWidth / 38;
     },
   },
 
@@ -348,8 +401,8 @@ export default {
     autoCompleteList() {
       const autoCompleteArray = this.coinsList.filter(
         (coin) =>
-          coin.FullName.toLowerCase().includes(this.ticker.toLowerCase()) ||
-          coin.Symbol.toLowerCase().includes(this.ticker.toLowerCase())
+          coin.FullName.includes(this.ticker.toUpperCase()) ||
+          coin.Symbol.includes(this.ticker.toUpperCase())
       );
 
       return autoCompleteArray.map((coin) => coin.Symbol).slice(0, 4);
@@ -401,6 +454,10 @@ export default {
 
     selectedTicker() {
       this.graph = [];
+    },
+
+    coinsList() {
+      this.loadingCircle = false;
     },
   },
 };

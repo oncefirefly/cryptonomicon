@@ -11,7 +11,7 @@ const socket = new WebSocket(
 socket.addEventListener("message", (event) => {
   const {
     TYPE: type,
-    FROMSYMBOL: currecy,
+    FROMSYMBOL: currency,
     PRICE: newPrice,
   } = JSON.parse(event.data);
 
@@ -19,7 +19,7 @@ socket.addEventListener("message", (event) => {
     return;
   }
 
-  const handlers = tickersHandlers.get(currecy) ?? [];
+  const handlers = tickersHandlers.get(currency) ?? [];
   handlers.forEach((fn) => fn(newPrice));
 });
 
@@ -40,6 +40,20 @@ function sendToWebSocket(message) {
   );
 }
 
+// function subToBTCExchangeRate(ticker) {
+//   sendToWebSocket({
+//     action: "SubAdd",
+//     subs: [`5~CCCAGG~${ticker}~BTC`],
+//   });
+// }
+
+// function subToBTCtoUSD() {
+//   sendToWebSocket({
+//     action: "SubAdd",
+//     subs: [`5~CCCAGG~BTC~USD`],
+//   });
+// }
+
 function subToTickerOnWs(ticker) {
   sendToWebSocket({
     action: "SubAdd",
@@ -47,7 +61,7 @@ function subToTickerOnWs(ticker) {
   });
 }
 
-function unsubToTickerOnWs(ticker) {
+function unsubFromTickerOnWs(ticker) {
   sendToWebSocket({
     action: "SubRemove",
     subs: [`5~CCCAGG~${ticker}~USD`],
@@ -62,7 +76,7 @@ export const subscribeToTicker = (ticker, callback) => {
 
 export const unsubFromTicker = (ticker) => {
   tickersHandlers.delete(ticker);
-  unsubToTickerOnWs(ticker);
+  unsubFromTickerOnWs(ticker);
 };
 
 export const loadCoinsList = () =>
