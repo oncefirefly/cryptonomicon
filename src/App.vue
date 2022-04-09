@@ -26,67 +26,12 @@
       </svg>
     </div>
     <div class="container">
-      <section>
-        <div class="flex">
-          <div class="max-w-xs">
-            <label for="wallet" class="block text-sm font-medium text-gray-700"
-              >Тикер</label
-            >
-            <div class="mt-1 relative rounded-md shadow-md">
-              <input
-                v-model="ticker"
-                @keyup.enter.exact="addTicker"
-                @keydown.exact="switchWarning"
-                type="text"
-                name="wallet"
-                id="wallet"
-                class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
-                placeholder="Например DOGE"
-              />
-            </div>
-            <div
-              v-if="ticker"
-              class="flex bg-white p-1 rounded-md shadow-md flex-wrap"
-            >
-              <span
-                v-for="coin in autoCompleteList"
-                :key="coin"
-                @click="ticker = coin.toString()"
-                @click.exact="addTicker"
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                {{ coin.toString() }}
-              </span>
-            </div>
-            <div v-if="alreadyAdded" class="text-sm text-red-600">
-              Такой тикер уже добавлен
-            </div>
-            <div v-if="noSuchCoin" class="text-sm text-red-600">
-              Такого тикера не существует
-            </div>
-          </div>
-        </div>
-        <button
-          @click="addTicker"
-          type="button"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          <!-- Heroicon name: solid/mail -->
-          <svg
-            class="-ml-0.5 mr-2 h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="#ffffff"
-          >
-            <path
-              d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
-            ></path>
-          </svg>
-          Добавить
-        </button>
-      </section>
+      <add-ticker
+        @add-ticker="addTicker"
+        :coinsList="coinsList"
+        :alreadyAdded="alreadyAdded"
+        :tickers="tickers"
+      />
       <template v-if="tickers.length">
         <div>
           <hr class="w-full border-t border-gray-600 my-4" />
@@ -197,13 +142,17 @@
 
 <script>
 import { loadCoinsList, subscribeToTicker, unsubFromTicker } from "./api";
+import AddTicker from "./components/AddTicker.vue";
 
 export default {
   name: "App",
 
+  components: {
+    AddTicker,
+  },
+
   data() {
     return {
-      ticker: "",
       filter: "",
 
       tickers: [],
@@ -215,7 +164,7 @@ export default {
 
       coinsList: [],
       alreadyAdded: false,
-      noSuchCoin: false,
+      coinInList: false,
 
       loadingCircle: true,
 
@@ -270,10 +219,7 @@ export default {
           if (ticker === this.selectedTicker) {
             this.graph.push(price);
 
-            if (
-              this.graph.length > this.maxGraphElements &&
-              this.maxGraphElements > 1
-            ) {
+            if (this.graph.length > this.maxGraphElements) {
               this.graph = this.graph.slice(-this.maxGraphElements);
             }
           }
@@ -288,55 +234,25 @@ export default {
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
-    addTicker() {
+    addTicker(ticker) {
       const newTicker = {
-        name: this.ticker.toUpperCase(),
+        name: ticker.toUpperCase(),
         price: "-",
       };
 
-      this.isInCoinsList(newTicker.name);
+      this.tickers = [...this.tickers, newTicker];
 
-      if (this.tickers.length && newTicker.name.length) {
-        const existingTicker = this.tickers.filter(
-          (t) => t.name === newTicker.name
-        );
-
-        if (existingTicker.length) {
-          this.alreadyAdded = true;
-        } else {
-          this.alreadyAdded = false;
-
-          if (this.noSuchCoin === false) {
-            this.tickers = [...this.tickers, newTicker];
-
-            subscribeToTicker(newTicker.name, (newPrice) =>
-              this.updateTicker(newTicker.name, newPrice)
-            );
-          }
-
-          this.ticker = "";
-        }
-      } else if (newTicker.name.length) {
-        if (this.noSuchCoin === false) {
-          this.tickers = [...this.tickers, newTicker];
-
-          subscribeToTicker(newTicker.name, (newPrice) =>
-            this.updateTicker(newTicker.name, newPrice)
-          );
-        }
-
-        this.ticker = "";
-      }
+      subscribeToTicker(newTicker.name, (newPrice) =>
+        this.updateTicker(newTicker.name, newPrice)
+      );
 
       this.filter = "";
     },
 
     select(ticker) {
       this.selectedTicker = ticker;
-    },
 
-    switchWarning() {
-      this.alreadyAdded = false;
+      this.$nextTick().then(this.calculateMaxGraphElements);
     },
 
     deleteTicker(tickerToRemove) {
@@ -348,26 +264,12 @@ export default {
       unsubFromTicker(tickerToRemove.name);
     },
 
-    isInCoinsList(tickerToCheck) {
-      const checkedTicker = this.coinsList.filter(
-        (coin) =>
-          tickerToCheck === coin.FullName || tickerToCheck === coin.Symbol
-      );
-
-      if (checkedTicker.length) {
-        this.noSuchCoin = false;
-      } else this.noSuchCoin = true;
-    },
-
     calculateMaxGraphElements() {
       if (!this.$refs.graph) {
         return;
       }
 
-      if (
-        this.graph.length > this.maxGraphElements &&
-        this.maxGraphElements > 1
-      ) {
+      if (this.graph.length > this.maxGraphElements) {
         this.graph = this.graph.slice(-this.maxGraphElements);
       }
 
@@ -396,16 +298,6 @@ export default {
 
     hasNextPage() {
       return this.filteredTickers.length > this.endIndex;
-    },
-
-    autoCompleteList() {
-      const autoCompleteArray = this.coinsList.filter(
-        (coin) =>
-          coin.FullName.includes(this.ticker.toUpperCase()) ||
-          coin.Symbol.includes(this.ticker.toUpperCase())
-      );
-
-      return autoCompleteArray.map((coin) => coin.Symbol).slice(0, 4);
     },
 
     normalizedGraph() {
