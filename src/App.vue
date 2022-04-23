@@ -62,7 +62,10 @@
             }"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
-            <div class="px-4 py-5 sm:p-6 text-center">
+            <div
+              class="px-4 py-5 sm:p-6 text-center"
+              :class="{ 'bg-red-300 opacity-50': t.price === '-' }"
+            >
               <dt class="text-sm font-medium text-gray-500 truncate">
                 {{ t.name }} - USD
               </dt>

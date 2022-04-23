@@ -4,6 +4,7 @@ const API_KEY =
 const AGGREGATE_INDEX = "5";
 
 const tickersHandlers = new Map();
+
 const socket = new WebSocket(
   `wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`
 );
@@ -11,7 +12,7 @@ const socket = new WebSocket(
 socket.addEventListener("message", (event) => {
   const {
     TYPE: type,
-    FROMSYMBOL: currency,
+    FROMSYMBOL: fsym,
     PRICE: newPrice,
   } = JSON.parse(event.data);
 
@@ -19,7 +20,7 @@ socket.addEventListener("message", (event) => {
     return;
   }
 
-  const handlers = tickersHandlers.get(currency) ?? [];
+  const handlers = tickersHandlers.get(fsym) ?? [];
   handlers.forEach((fn) => fn(newPrice));
 });
 
@@ -40,20 +41,6 @@ function sendToWebSocket(message) {
   );
 }
 
-// function subToBTCExchangeRate(ticker) {
-//   sendToWebSocket({
-//     action: "SubAdd",
-//     subs: [`5~CCCAGG~${ticker}~BTC`],
-//   });
-// }
-
-// function subToBTCtoUSD() {
-//   sendToWebSocket({
-//     action: "SubAdd",
-//     subs: [`5~CCCAGG~BTC~USD`],
-//   });
-// }
-
 function subToTickerOnWs(ticker) {
   sendToWebSocket({
     action: "SubAdd",
@@ -71,6 +58,7 @@ function unsubFromTickerOnWs(ticker) {
 export const subscribeToTicker = (ticker, callback) => {
   const subscribers = tickersHandlers.get(ticker) || [];
   tickersHandlers.set(ticker, [...subscribers, callback]);
+
   subToTickerOnWs(ticker);
 };
 
