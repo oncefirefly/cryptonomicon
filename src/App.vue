@@ -32,6 +32,7 @@
         :alreadyAdded="alreadyAdded"
         :tickers="tickers"
       />
+<<<<<<< Updated upstream
       <template v-if="tickers.length">
         <div>
           <hr class="w-full border-t border-gray-600 my-4" />
@@ -93,9 +94,17 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
+=======
+      <my-tickers
+        @select-ticker="select"
+        @delete-ticker="deleteTicker"
+        :tickers="tickers"
+        :selectedTicker="selectedTicker"
+      />
+>>>>>>> Stashed changes
       <ticker-graph
-        @closeGraph="closeGraph"
-        @updateGraph="updateGraph"
+        @close-graph="closeGraph"
+        @update-graph="updateGraph"
         :selectedTicker="selectedTicker"
         :graph="graph"
       />
@@ -107,6 +116,7 @@
 import { loadCoinsList, subscribeToTicker, unsubFromTicker } from "./api";
 import AddTicker from "./components/AddTicker.vue";
 import TickerGraph from "./components/TickerGraph.vue";
+import MyTickers from "./components/MyTickers.vue";
 
 export default {
   name: "App",
@@ -114,12 +124,11 @@ export default {
   components: {
     AddTicker,
     TickerGraph,
+    MyTickers,
   },
 
   data() {
     return {
-      filter: "",
-
       tickers: [],
       selectedTicker: null,
 
@@ -130,8 +139,6 @@ export default {
       coinInList: false,
 
       loadingCircle: true,
-
-      page: 1,
     };
   },
 
@@ -178,13 +185,6 @@ export default {
         });
     },
 
-    formatPrice(price) {
-      if (price === "-") {
-        return price;
-      }
-      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
-    },
-
     addTicker(ticker) {
       const newTicker = {
         name: ticker.toUpperCase(),
@@ -206,9 +206,6 @@ export default {
 
     deleteTicker(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t !== tickerToRemove);
-      if (this.selectedTicker === tickerToRemove) {
-        this.selectedTicker = null;
-      }
 
       unsubFromTicker(tickerToRemove.name);
     },
@@ -222,58 +219,9 @@ export default {
     },
   },
 
-  computed: {
-    startIndex() {
-      return (this.page - 1) * 6;
-    },
-
-    endIndex() {
-      return this.page * 6;
-    },
-
-    filteredTickers() {
-      return this.tickers.filter((ticker) =>
-        ticker.name.toLowerCase().includes(this.filter.toLowerCase())
-      );
-    },
-
-    paginatedTickers() {
-      return this.filteredTickers.slice(this.startIndex, this.endIndex);
-    },
-
-    hasNextPage() {
-      return this.filteredTickers.length > this.endIndex;
-    },
-
-    pageStateOptions() {
-      return {
-        filter: this.filter,
-        page: this.page,
-      };
-    },
-  },
-
   watch: {
     tickers() {
       localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
-    },
-
-    filter() {
-      this.page = 1;
-    },
-
-    pageStateOptions(value) {
-      window.history.pushState(
-        null,
-        document.title,
-        `${window.location.pathname}?filter=${value.filter}&page=${value.page}`
-      );
-    },
-
-    paginatedTickers() {
-      if (this.paginatedTickers.length === 0 && this.page > 1) {
-        this.page -= 1;
-      }
     },
 
     selectedTicker() {

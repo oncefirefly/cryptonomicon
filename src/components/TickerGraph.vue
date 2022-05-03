@@ -71,6 +71,10 @@ export default {
     window.removeEventListener("resize", this.calculateMaxGraphElements);
   },
 
+  beforeUpdate: function () {
+    this.calculateMaxGraphElements();
+  },
+
   methods: {
     calculateMaxGraphElements() {
       if (!this.$refs.graph) {
