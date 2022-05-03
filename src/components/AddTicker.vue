@@ -85,7 +85,7 @@ export default {
   },
 
   emits: {
-    "add-ticker": (value) => typeof value === "string",
+    "add-ticker": (ticker) => typeof ticker === "string",
   },
 
   data() {
