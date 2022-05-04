@@ -1,5 +1,10 @@
 # cryptonomicon
 
+## Build version
+```
+https://oncefirefly.github.io/cryptonomicon/
+```
+
 ## Project setup
 ```
 npm install
